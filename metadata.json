@@ -1,0 +1,5 @@
+{
+  "name": "Analisador de Janela de Oportunidade",
+  "description": "Uma ferramenta interativa para analisar cenários de políticas públicas usando o Modelo de Múltiplos Fluxos de John W. Kingdon. Os usuários podem inserir fatores para os fluxos de problema, política e político, e receber uma análise baseada em IA de potenciais janelas de oportunidade e estratégias empreendedoras.",
+  "requestFramePermissions": []
+}
