@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Factor, GeminiAnalysis } from '../types';
 
@@ -9,12 +10,38 @@ interface PolicyScenario {
   entrepreneurActions: string[];
 }
 
+const reliabilitySchema = {
+  type: Type.OBJECT,
+  properties: {
+    score: { 
+      type: Type.STRING, 
+      description: "Nível de fidedignidade: 'Baixa', 'Média' ou 'Alta'." 
+    },
+    justification: { 
+      type: Type.STRING, 
+      description: "Breve explicação do porquê desta nota baseada na qualidade da informação fornecida." 
+    }
+  },
+  required: ["score", "justification"]
+};
+
 const analysisSchema = {
   type: Type.OBJECT,
   properties: {
     scenarioSummary: {
       type: Type.STRING,
       description: "Um resumo breve e objetivo do cenário político, focando nos principais pontos de tensão."
+    },
+    reliabilityAssessment: {
+      type: Type.OBJECT,
+      properties: {
+        problem: reliabilitySchema,
+        policy: reliabilitySchema,
+        political: reliabilitySchema,
+        entrepreneur: reliabilitySchema,
+      },
+      required: ["problem", "policy", "political", "entrepreneur"],
+      description: "Avaliação da qualidade, verossimilhança e robustez das informações fornecidas pelo usuário para cada categoria."
     },
     streamConvergenceAnalysis: {
       type: Type.STRING,
@@ -35,50 +62,46 @@ const analysisSchema = {
       description: "Identifique os maiores e mais realistas obstáculos, custos políticos e contra-argumentos que poderiam inviabilizar a mudança da política."
     }
   },
-  required: ["scenarioSummary", "streamConvergenceAnalysis", "policyWindowOutlook", "entrepreneurialStrategy", "potentialChallenges"]
+  required: ["scenarioSummary", "reliabilityAssessment", "streamConvergenceAnalysis", "policyWindowOutlook", "entrepreneurialStrategy", "potentialChallenges"]
 };
 
 
 export const analyzePolicyScenario = async (scenario: PolicyScenario): Promise<GeminiAnalysis> => {
-  if (!process.env.API_KEY) {
-    throw new Error("API_KEY environment variable is not set.");
-  }
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const formatFactors = (factors: Factor[]) => factors.map(f => `- ${f.text}`).join('\n') || 'Nenhum fator listado.';
   const formatActions = (actions: string[]) => actions.map(a => `- ${a}`).join('\n') || 'Nenhuma ação listada.';
 
   const prompt = `
-    Você é um cientista político cético e realista, especialista no Modelo de Múltiplos Fluxos de John W. Kingdon. Sua tarefa é fornecer uma análise crítica e pessimista de um cenário de política pública, focando nos obstáculos e na baixa probabilidade de sucesso. Gere uma análise estruturada em formato JSON em português.
+    Você é um cientista político cético e analista de inteligência, especialista no Modelo de Múltiplos Fluxos de John W. Kingdon. 
+    Sua tarefa é dupla: 
+    1. Avaliar a FIDEDIGNIDADE e ROBUSTEZ das informações fornecidas (se são vagas, baseadas em senso comum, ou se parecem dados técnicos/factuais sólidos).
+    2. Fornecer uma análise crítica e pessimista do cenário de política pública, focando nos obstáculos.
 
-    **Resumo do Modelo de Kingdon:**
-    - **Fluxo de Problemas:** Problemas que ganham atenção.
-    - **Fluxo de Soluções (Políticas Públicas):** Propostas de políticas viáveis.
-    - **Fluxo Político:** O clima político (humor nacional, eleições, etc.).
-    - **Janela de Oportunidade:** Uma breve chance para mudança quando os três fluxos convergem.
-    - **Empreendedor Político:** Agente que acopla os fluxos.
+    **Diretriz de Fidedignidade:**
+    - ALTA: Dados específicos, indicadores claros, eventos datados ou propostas detalhadas.
+    - MÉDIA: Informações plausíveis mas sem detalhamento técnico ou fontes implícitas.
+    - BAIXA: Afirmações vagas, clichês políticos, generalizações ou falta de nexo causal claro.
 
-    **Cenário de Política Pública do Usuário:**
     **Questão de Política Pública:** ${scenario.policyIssue}
 
-    **Fatores do Fluxo de Problemas:**
+    **Fluxo de Problemas:**
     ${formatFactors(scenario.problemStreamFactors)}
 
-    **Fatores do Fluxo de Soluções (Propostas):**
+    **Fluxo de Soluções (Propostas):**
     ${formatFactors(scenario.policyStreamFactors)}
 
-    **Fatores do Fluxo Político:**
+    **Fluxo Político:**
     ${formatFactors(scenario.politicalStreamFactors)}
 
-    **Ações do Empreendedor Político:**
+    **Ações do Empreendedor:**
     ${formatActions(scenario.entrepreneurActions)}
 
-    **Sua Tarefa:**
-    Com base na entrada do usuário, forneça uma análise CRÍTICA, PESSIMISTA e CONCISA em português. Foque nos desafios, custos políticos e por que a mudança provavelmente falhará. A saída DEVE ser um objeto JSON válido que adere ao esquema fornecido. Para 'policyWindowOutlook', use UMA das classificações predefinidas.
+    Gere uma análise estruturada em formato JSON em português. Foque nos desafios e na veracidade do que foi apresentado.
   `;
   
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: "gemini-3-flash-preview",
     contents: prompt,
     config: {
         responseMimeType: "application/json",
